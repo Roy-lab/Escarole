@@ -45,7 +45,7 @@ The assignment files can also be used to subset the data, as only genes with an 
 
 11. const_var: Pick a value for fixing the variances (rather than learning them). We have used 0.2 as default.
 
-## Command for running Escarole on hindbrain and spinal cord NSC RNA-seq data
+## Command for running Escarole on example data
 ```
 mkdir output
 ./escarole example_input/time_order.txt example_input/ortho_map.txt 5 example_input/time_tree.txt example_input/ashton_config.txt none output learn ashton_2hr uniform 0.8 0.2 1> running_escarole.log 2> running_escarole.err
