@@ -31,7 +31,7 @@ The input arguments are as follows:
 4. sample_tree: A file describing the hierarchical relationships between time points or cell types. The format of this file is 2 column, tab-separated. First column is the name of the child sample and the second column is the name of the parent sample of each branch. For Escarole applications to time series, this is a linear tree.
 
 5. config : A file describing the locations of the initial state assignments and expression data for each sample.
-The assignment files can also be used to subset the data, as only genes with an input state assignment will be included in the analysis. The filenames in this file must be either full paths or relative to the directory in which you are running Escarole.
+The assignment files can also be used to subset the data, as only genes with an input state assignment will be included in the analysis. The filenames in this file must be either full paths or relative to the directory in which you are running Escarole. We have applied Escarole with log-transformed TPMs (example provided).
 
 6. output_dir: Location of results (must exist before running)
 
