@@ -530,7 +530,7 @@ SpeciesClusterManager::estimateMeanCov(Expert* e, string& specName, int clusterI
 					cout <<"Weird gamma found for " << dIter->first << " at row " << r << endl;
 				}
 				sum=sum+g_i;
-				if(sum>10000)
+				if(isnan(sum) || isinf(sum)) // #sum>10000) // sum of 10k is actually fine...
 				{
 					cout <<"Weird sum " << sum << " found at " << dIter->first << " at row " << r << endl;
 				}
