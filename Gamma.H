@@ -27,7 +27,7 @@ class Gamma
 		string species;
 		//Node* leftchild;
 		//Node* rightchild;
-        vector<Node *> children;
+        	vector<Node *> children;
 		Node* parent;
 		//This is 2 for duplication and 1 for speciation
 		int nodeType;
@@ -36,7 +36,9 @@ class Gamma
 		bool hasData;
 		map<int,double>* dataLL;
 		map<int,double> mixProbs;
-        bool excludeFlag;
+	        bool excludeFlag;
+		map<int,double> alpha;
+		map<int,double> beta;
 	};
 	Node* getRoot();
 	Node* getGeneNode(string&,string&);
@@ -44,6 +46,7 @@ class Gamma
 	int showTree();
 	map<int,double>* getDataLL(string&);
 	string& getDupAncestor();
+	double ll;
 	private:
 	Gamma::Node* initSubtree(GeneTree* gtreenode);
 	Gamma::Node* initSubtree(GeneTree* gtreenode,string& rootname);

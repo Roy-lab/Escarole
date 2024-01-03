@@ -482,11 +482,12 @@ SpeciesClusterManager::getScore()
         //print out all three score values
         cout <<"Unpenalized score= " << netLL_unpen << " Penalized score=" << netLL << " Corrected BIC score=" << netLL_correctedBIC << "Corrected AIC score=" << netLL_correctedAIC << endl;
         //SK: add score values to score vector
-	scores.clear();
+        //SR updated to score values per iter to score vector
+	//scores.clear();
         scores.push_back(netLL_unpen);
-        scores.push_back(netLL);
-        scores.push_back(netLL_correctedBIC);
-	scores.push_back(netLL_correctedAIC);
+       //scores.push_back(netLL);
+        //scores.push_back(netLL_correctedBIC);
+	//scores.push_back(netLL_correctedAIC);
 	return netLL_unpen;
 }
 
@@ -527,7 +528,7 @@ SpeciesClusterManager::estimateMeanCov(Expert* e, string& specName, int clusterI
 				double g_i=gamma_i_k_s->getValue(r,clusterID);
 				if(g_i>1)
 				{
-					cout <<"Weird gamma found for " << dIter->first << " at row " << r << endl;
+					cout <<"Weird gamma found for " << dIter->first << " at row " << r << " = " <<g_i << endl;
 				}
 				sum=sum+g_i;
 				if(isnan(sum) || isinf(sum)) // #sum>10000) // sum of 10k is actually fine...
@@ -2391,7 +2392,11 @@ SpeciesClusterManager::writeScores(const char* outputDir)
         char outputFName[1024];
         sprintf(outputFName,"%s/likelihood.txt",outputDir);
         ofstream oFile(outputFName);
-        oFile << scores[0] << "\t" << scores[1] << "\t" << scores[2] << "\t" << scores[3] << endl;
+	for(int i=0;i<scores.size();i++)
+	{
+        	//oFile << scores[0] << "\t" << scores[1] << "\t" << scores[2] << "\t" << scores[3] << endl;
+        	oFile << scores[i]<<endl;
+	}
         oFile.close();
         
         return 0;

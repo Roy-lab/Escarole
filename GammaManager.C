@@ -16,6 +16,7 @@ Arboretum: An algorithm to cluster functional genomesomics data from multiple sp
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <iostream>
+#include <fstream>
 #include <math.h>
 #include <string.h>
 #include <gsl/gsl_randist.h>
@@ -119,6 +120,273 @@ int GammaManager::setObservedProbs(int ogid,map<int,double> prob,string&geneName
     return 0;
 }
 
+
+// Assumes all PDFs in node->mixProbs have been updated based on evidence
+int GammaManager::estimateAlpha(Gamma::Node* node)
+{
+	// LEAF:
+	map<int,double> probs = node->mixProbs;
+	if (node->children.empty() && node->parent!=NULL) 
+	{ 
+		//normalize PDF with sum of PDFs to get alpha
+		double normTerm = 0;
+		for (map<int,double>::iterator pIter=probs.begin(); pIter!=probs.end(); pIter++) 
+		{
+			normTerm += (pIter->second);
+		}
+		for (map<int,double>::iterator pIter=probs.begin(); pIter!=probs.end(); pIter++) 
+		{
+			//Dec 28th: adopted from P-DRMN code No normalization
+			//node->alpha[pIter->first] = (pIter->second)/normTerm;
+			node->alpha[pIter->first] = (pIter->second);
+		}
+
+	// INTERNAL NODES or ROOT:
+	} 
+	else if (!node->children.empty()) 
+	{ 
+		// first update children's alpha
+		for (int i=0; i < node->children.size(); i++) 
+		{
+			if(node->children[i]==NULL)
+			{
+				continue;
+			}
+			estimateAlpha(node->children[i]); 
+		}		
+		// then use children's alpha and transition prob to calculate my own
+		////SR commented this out. The transition should be from the parent too.
+		////Matrix* transitionProb = spdistMgr->getConditional(node->species);
+		for (int i=0; i < maxClusterCnt; i++) 
+		{
+			double tmp_alpha = 1.0;
+			int updatecnt=0;
+			//The logic of missing data for a gene make things a bit complicated. We will have a counter to see if tmp_alpha was updated at all
+			for (int c=0; c < node->children.size(); c++) 
+			{
+				double tmp_l = 0;
+				Gamma::Node* child = node->children[c];
+				Matrix* transitionProb = spdistMgr->getConditional(child->species);
+				for (int j =0; j < maxClusterCnt; j++) 
+				{
+					tmp_l += ((transitionProb->getValue(i,j)) * (child->alpha[j]));
+				}
+				updatecnt++;
+				tmp_alpha *= tmp_l;
+	 		}
+			if(updatecnt==0)
+			{
+				//No need to continue for other clusterIDs.
+				return 0;	
+			}
+			//probs should have been updated in the expectationStep_Species
+			node->alpha[i] = tmp_alpha*probs[i];
+		}		
+	}
+	return 0;
+}
+
+// assumes alphas have been updated for the entire tree
+int GammaManager::estimateBeta(Gamma::Node* node) 
+{
+	Gamma::Node* parent = node->parent;
+	map<int,double> probs = node->mixProbs;
+	if (parent == NULL) 
+	{ // i'm root
+		// just setting to 1 so that if multipled to, it has no effect
+		// Actually setting it to 1 makes the likelihood off by a factor driven by the prior at root
+		Matrix* myTransitionProb=spdistMgr->getConditional(node->species);
+		for (int i = 0; i < maxClusterCnt; i++) 
+		{
+			//node->beta[i] = 1;
+			//node->beta[i] = probs[i];
+			node->beta[i]=myTransitionProb->getValue(0,i);
+		}
+	} 
+	else 
+	{
+		for (int i=0; i < maxClusterCnt; i++) 
+		{
+			double betaval=0;
+			double tmp_ancestors=0;
+			Matrix* parentcond=spdistMgr->getConditional(parent->species);
+			//here j is the index for the parent 
+			for (int j = 0; j < maxClusterCnt; j++) 
+			{
+				double obsval=parent->mixProbs[j];
+				tmp_ancestors = 0;
+				//tmp_ancestors=obsval * parent->beta[j];	
+				//If parent is a root, only use the prior
+				if(parent->parent==NULL)
+				{
+				//	double pval=parentcond->getValue(0,j);
+					double obsval=parent->mixProbs[j];
+					//tmp_ancestors=tmp_ancestors+(parent->beta[j]*pval*obsval);
+					tmp_ancestors=tmp_ancestors+(parent->beta[j]*obsval);
+				}
+				else
+				{
+				//	for(int k=0;k<maxClusterCnt;k++)
+				//	{
+						//double pval=parentcond->getValue(k,j);
+						double obsval=parent->mixProbs[j];
+						//tmp_ancestors=tmp_ancestors+(parent->beta[j]*pval*obsval);
+						tmp_ancestors=tmp_ancestors+(parent->beta[j]*obsval);
+				//	}
+				}
+
+				double tmp_siblings = 1;
+				for (int c=0; c < parent->children.size(); c++) 
+				{
+					Gamma::Node* sibling = parent->children[c];
+					if(sibling==NULL)
+					{	
+						continue;
+					}
+					//missing value
+					if(sibling->alpha.size()==0)
+					{
+						continue;
+					}
+					double siblingcontrib=0;
+					if (sibling != node) 
+					{
+						for (int k=0; k < maxClusterCnt; k++) 
+						{
+							Matrix* sibTransitionProb=spdistMgr->getConditional(sibling->species);
+							siblingcontrib= siblingcontrib+ (sibTransitionProb->getValue(j,k) * sibling->alpha[k]);
+						}
+						//Should sibling contribs get added to multiplied?multipled
+						tmp_siblings=tmp_siblings*siblingcontrib;
+					}
+				}
+				Matrix* myTransitionProb=spdistMgr->getConditional(node->species);
+				betaval=betaval+(myTransitionProb->getValue(j,i)*tmp_ancestors*tmp_siblings);
+			}
+			node->beta[i] = betaval;
+		}
+	}
+	// Finally, update children 
+	for (int c=0; c < node->children.size(); c++) 
+	{
+		Gamma::Node* child=node->children[c];
+		if(child==NULL)
+		{	
+			continue;
+		}
+		//missing value
+		if(child->alpha.size()==0)
+		{
+			continue;
+		}
+		estimateBeta(child);
+	} 	
+	return 0;
+}
+
+int
+GammaManager::estimateBetaLikeArboretum(Gamma::Node* node)
+{
+	if(node->parent==NULL)
+	{
+		// just setting to 1 so that if multipled to, it has no effect
+		for (int i = 0; i < maxClusterCnt; i++) 
+		{
+			node->beta[i] = 1;
+			//node->beta[i] = probs[i];
+		}
+		for (int c=0; c < node->children.size(); c++) 
+		{
+			Gamma::Node* child=node->children[c];
+			estimateBetaLikeArboretum(child);
+		}
+		return 0;
+	}
+	if(node->parent->parent==NULL)
+	{
+		Matrix* rootprior=spdistMgr->getConditional(spdistMgr->getRoot()->name);
+		Gamma::Node* parent=node->parent;
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			double tmp_siblings = 1;
+			double obsval=parent->mixProbs[i];
+			double pi=rootprior->getValue(0,i);
+			double tmp_ancestors=pi*obsval;
+			for(int c=0;c<parent->children.size();c++)
+			{
+				//double bval=0;
+				double siblingcontrib=0;
+				Gamma::Node* sibling = parent->children[c];
+				if (sibling == node) 
+				{
+					continue;
+				}
+				for(int j=0;j<maxClusterCnt;j++)
+				{
+					Matrix* sibTransitionProb=spdistMgr->getConditional(sibling->species);
+					double pval=sibTransitionProb->getValue(i,j);
+					siblingcontrib= siblingcontrib+ (sibTransitionProb->getValue(i,j) * sibling->alpha[j]);
+				}
+				tmp_siblings=tmp_siblings*siblingcontrib;
+			}
+			node->beta[i]=tmp_siblings*tmp_ancestors;
+		}
+	}
+	else 
+	{
+		Matrix* parentcond=spdistMgr->getConditional(node->parent->species);
+		Gamma::Node* parent=node->parent;
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			double tmp_ancestors=0;
+			for(int k=0;k<maxClusterCnt;k++)
+			{
+				double pval=parentcond->getValue(k,i);
+				double obsval=parent->mixProbs[i];
+				tmp_ancestors=tmp_ancestors+(parent->beta[k]*pval*obsval);
+			}
+			double tmp_siblings = 1;
+			for(int c=0;c<parent->children.size();c++)
+			{
+				//double bval=0;
+				double siblingcontrib=0;
+				Gamma::Node* sibling = parent->children[c];
+				if (sibling == node) 
+				{
+					continue;
+				}
+				for(int j=0;j<maxClusterCnt;j++)
+				{
+					Matrix* sibTransitionProb=spdistMgr->getConditional(sibling->species);
+					double pval=sibTransitionProb->getValue(i,j);
+					siblingcontrib= siblingcontrib+ (sibTransitionProb->getValue(i,j) * sibling->alpha[j]);
+				}
+				tmp_siblings=tmp_siblings*siblingcontrib;
+			}
+			node->beta[i]=tmp_siblings*tmp_ancestors;
+		}
+	}
+	// Finally, update children 
+	for (int c=0; c < node->children.size(); c++) 
+	{
+		Gamma::Node* child=node->children[c];
+		if(child==NULL)
+		{	
+			continue;
+		}
+		//missing value
+		if(child->alpha.size()==0)
+		{
+			continue;
+		}
+		//estimateBeta(child);
+		estimateBetaLikeArboretum(child);
+	}
+	return 0;
+}
+
+
+
 int GammaManager::estimateLeafGamma(Gamma::Node* m){
 	if(m->normTerm==NULL)
 	{
@@ -210,17 +478,38 @@ GammaManager::estimateLeafGamma(int ogid,map<int,double>& prob,string& geneName,
 int 
 GammaManager::estimateNonLeafPosterior()
 {
+	map<int,int> problemOGs;
 	for(map<int,Gamma*>::iterator gIter=gammaSet.begin();gIter!=gammaSet.end();gIter++)
 	{
 		Gamma* gamma_og=gIter->second;
 		showGammas=false;
-		//if(gIter->first==20057|| gIter->first==13692)
-		//{
-			//showGammas=true;
-			//cout <<"Stop here" << endl;
-		//}
-		estimateNonLeafPosterior(gamma_og->getRoot());
+		if((gIter->first==38)||(gIter->first==13925))
+		{
+			showGammas=true;
+			cout <<"Stop here" << endl;
+		}
+		estimateAlpha(gamma_og->getRoot());
+		estimateBeta(gamma_og->getRoot());
+		//estimateBetaLikeArboretum(gamma_og->getRoot());
+		//estimateNonLeafPosterior(gamma_og->getRoot());
+		double ll=0;
+		errorflag=0;
+		estimateNonLeafPosteriorGamma(gamma_og->getRoot(),ll);
+		//estimateNonLeafPosteriorGammaLikeArboretum(gamma_og->getRoot(),ll);
+		if(errorflag>0)
+		{
+			problemOGs[gIter->first]=errorflag;
+		}
+		gamma_og->ll=ll;
 	}
+	cout <<"Found a total of " << problemOGs.size() << " problem OGs" << endl;
+	ofstream oFile("problemOGs.txt");
+	for(map<int,int>::iterator aIter=problemOGs.begin();aIter!=problemOGs.end();aIter++)
+	{
+		Gamma* gamma_og=gammaSet[aIter->first];
+		oFile <<aIter->first<<"\t" << aIter->second << endl;
+	}
+	oFile.close();
 	return 0;
 }
 
@@ -316,6 +605,252 @@ GammaManager::estimateNonLeafPosterior(Gamma::Node* node)
 }
 
 
+int
+GammaManager::estimateNonLeafPosteriorGamma(Gamma::Node* g,double& ll)
+{
+	if(g->alpha.size()==0|| g->beta.size()==0)
+	{
+		return 0;
+	}
+	if(g->gamma==NULL)
+	{
+		if(g->parent==NULL)
+		{
+			g->gamma=new Matrix(1,maxClusterCnt);
+			g->gamma->setAllValues(0);
+		}
+		else
+		{
+			g->gamma=new Matrix(maxClusterCnt,maxClusterCnt);
+			g->gamma->setAllValues(0);
+		}
+	}
+	Matrix* conditional=spdistMgr->getConditional(g->species);
+	if(g->parent==NULL)
+	{
+		ll=0;
+		if(g->normTerm==NULL)
+		{
+			g->normTerm=new Matrix(1,maxClusterCnt);
+		}
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			//double v=g->alpha->getValue(0,i);
+			double v=g->alpha[i];
+			//double u=g->beta[i];
+			double prior=conditional->getValue(0,i);
+			//double p=u*v*prior;
+			double p=v*prior;
+			if(p<0 || isnan(p))
+			{
+				//cout << "p is set" << g->name << "\t" << p << "\t" << v << "\t" << u << endl;
+				cout << "p is set" << g->name << "\t" << p << "\t" << v <<  endl;
+			}
+			ll=ll+p;
+			g->gamma->setValue(p,0,i);
+		}
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			double v=g->gamma->getValue(0,i);
+			v=v/ll;
+			if(isnan(v)|| isinf(v))
+			{
+				cout <<"Found bad prob for " <<g->name << endl;
+			}
+			g->gamma->setValue(v,0,i);
+			g->normTerm->setValue(v,0,i);
+		}
+	}
+	else
+	{
+		
+		double localll=0;
+		Gamma::Node* parent=g->parent;
+		//map<int,double> probs = g->mixProbs;
+		map<int,double> parentprobs = parent->mixProbs;
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			for(int j=0;j<maxClusterCnt;j++)
+			{
+				/*double pval=conditional->getValue(i,j);
+				double b=g->beta[j];
+				double a=parent->alpha[i];
+				double v=b*pval*a*probs[j];
+				localll=localll+v;
+				g->gamma->setValue(v,i,j);*/
+				//While checking what is happening in Arboretum I noticed alpha is coming from the child and beta from the parent. Not sure if it helps, but let's try it
+				double pval=conditional->getValue(i,j);
+				double b=parent->beta[i];
+				double a=g->alpha[j];
+				double v=b*pval*a*parentprobs[i];
+				localll=localll+v;
+				g->gamma->setValue(v,i,j);
+
+			}
+		}
+		if(fabs(ll-localll)>1e-3)
+		{
+		//	cout <<"The local ll for this node " << g->name <<" " << g->species<< " is not matching using localll " << endl
+		//	<< "ll: " << ll << " localll: " << localll <<endl;
+			errorflag=errorflag+1;
+		}
+
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			for(int j=0;j<maxClusterCnt;j++)
+			{
+				//double pval=conditional->getValue(i,j);
+				//double b=g->beta[i];
+				//double a=g->alpha[j];
+				//double v=b*pval*a;
+				double v=g->gamma->getValue(i,j);
+				v=v/ll;
+				//v=v/localll;
+				g->gamma->setValue(v,i,j);
+			}
+		}
+		//Also update the normTerm
+		if(g->normTerm==NULL)
+		{
+			g->normTerm=new Matrix(1,maxClusterCnt);
+		}
+		for(int j=0;j<maxClusterCnt;j++)
+		{
+			double s=0;
+			for(int i=0;i<maxClusterCnt;i++)
+			{
+				//SR had temporarily switched this to j,i but it should be i,j since we do want to sum over the parent states
+				double v=g->gamma->getValue(i,j);
+				s=s+v;
+			}
+			g->normTerm->setValue(s,0,j);
+		}
+		if(showGammas)
+		{
+			cout <<"node name " << g->name << endl;
+			g->gamma->showMatrix();
+		}
+	}
+        for (int i=0; i< g->children.size(); i++) 
+	{
+		if(g->children[i]==NULL)
+		{
+			continue;
+		}
+   		estimateNonLeafPosteriorGamma(g->children[i],ll);
+        }
+
+	return 0;
+}
+
+
+int
+GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& ll)
+{
+	if(g->alpha.size()==0|| g->beta.size()==0)
+	{
+		return 0;
+	}
+	if(g->gamma==NULL)
+	{
+		if(g->parent==NULL)
+		{
+			g->gamma=new Matrix(1,maxClusterCnt);
+			g->gamma->setAllValues(0);
+		}
+		else
+		{
+			g->gamma=new Matrix(maxClusterCnt,maxClusterCnt);
+			g->gamma->setAllValues(0);
+		}
+	}
+	Matrix* conditional=spdistMgr->getConditional(g->species);
+	if(g->parent==NULL)
+	{
+		
+		ll=0;
+		if(g->normTerm==NULL)
+		{
+			g->normTerm=new Matrix(1,maxClusterCnt);
+		}
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			double v=g->alpha[i];
+			double p=v*conditional->getValue(0,i);
+			if(p<0 || isnan(p))
+			{
+				cout << "p is set" << g->name << "\t" << p << "\t" << v << endl;
+			}
+			ll=ll+p;
+			g->gamma->setValue(p,0,i);
+		}
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			double v=g->gamma->getValue(0,i);
+			v=v/ll;
+			if(isnan(v)|| isinf(v))
+			{
+				cout <<"Found bad prob " << endl;
+			}
+			g->gamma->setValue(v,0,i);
+			g->normTerm->setValue(v,0,i);
+		}
+	}
+	else
+	{
+		double localll=0;
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			for(int j=0;j<maxClusterCnt;j++)
+			{
+				double pval=conditional->getValue(i,j);
+				double b=g->beta[i];
+				double a=g->alpha[j];
+				double v=b*pval*a;
+				localll=localll+v;
+				v=v/ll;
+				g->gamma->setValue(v,i,j);
+			}
+		}
+		//Also update the normTerm
+		if(g->normTerm==NULL)
+		{
+			g->normTerm=new Matrix(1,maxClusterCnt);
+		}
+		for(int j=0;j<maxClusterCnt;j++)
+		{
+			double s=0;
+			for(int i=0;i<maxClusterCnt;i++)
+			{
+				double v=g->gamma->getValue(i,j);
+				s=s+v;
+			}
+			g->normTerm->setValue(s,0,j);
+		}
+		if(showGammas)
+		{
+			cout <<"node name " << g->name << endl;
+			g->gamma->showMatrix();
+		}
+		if(fabs(ll-localll)>1e-3)
+		{
+		//	cout <<"The local ll for this node " << g->name <<" " << g->species<< " is not matching using localll " << endl
+		//	<< "ll: " << ll << " localll: " << localll <<endl;
+			errorflag=errorflag+1;
+		}
+	}
+        for (int i=0; i< g->children.size(); i++) 
+	{
+		if(g->children[i]==NULL)
+		{
+			continue;
+		}
+   		estimateNonLeafPosteriorGammaLikeArboretum(g->children[i],ll);
+        }
+	return 0;
+}
+
+
 map<int,double>*
 GammaManager::getLeafLikelihood_store(int ogid,string& geneName)
 {
@@ -332,9 +867,23 @@ GammaManager::getAllNodeScore()
 	for(map<int,Gamma*>::iterator gIter=gammaSet.begin();gIter!=gammaSet.end();gIter++)
 	{
 		double score=0;
-		score=gIter->second->root->normTerm->getValue(0,0);
-		totalScore=totalScore+log(score);
-		score=getNodeScore(gIter->second->root);
+		//score=gIter->second->root->normTerm->getValue(0,0);
+		Matrix* conditional=spdistMgr->getConditional(gIter->second->root->species);
+		Gamma::Node* g=gIter->second->root;
+		for(int i=0;i<maxClusterCnt;i++)
+		{
+			double v=g->alpha[i];
+			score=score+(v*conditional->getValue(0,i));
+			score=score+v;
+		}
+		//totalScore=totalScore+log(score);
+		if(isnan(log(gIter->second->ll)))
+		{
+			cout <<"Nan ll: "<< gIter->first << "\t" << gIter->second->ll << endl;
+			
+		}
+		totalScore=totalScore+log(gIter->second->ll);
+		//score=getNodeScore(gIter->second->root);
 	//	totalScore=totalScore+score;
 	}
 	return totalScore;
@@ -1229,7 +1778,7 @@ GammaManager::updateTransitionMatrix(Gamma::Node* node)
 	Matrix* gval=node->gamma;
 	Matrix* parentmarg=NULL;
 	//use the norm term to store the marginals of this node, which will be used in the child node
-	if(node->parent!=NULL)
+	/*if(node->parent!=NULL)
 	{
 		parentmarg=node->parent->normTerm;
 		if(parentmarg->getColCnt()==1)
@@ -1255,7 +1804,7 @@ GammaManager::updateTransitionMatrix(Gamma::Node* node)
 			node->normTerm->setValue(anormterm,0,c);
 		}
 	    
-    }
+    }*/
     //cout << "Update TransitionMatrix " << node->name <<endl;
 	//node->normTerm->showMatrix();
     //node->gamma->showMatrix();

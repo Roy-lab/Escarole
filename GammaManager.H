@@ -23,6 +23,14 @@ class GammaManager
 	int estimateLeafGamma(int,map<int,double>&,string& geneName, string& specName);
 	int estimateLeafGamma(Gamma::Node* m);
 	int estimateNonLeafPosterior();
+
+	int estimateNonLeafPosteriorGamma(Gamma::Node* g,double& ll);
+	int estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& ll);
+	int estimateBeta(Gamma::Node* node);
+	int estimateBetaLikeArboretum(Gamma::Node* node);
+	int estimateAlpha(Gamma::Node* node);
+
+
 	double getNonLeafScore();
 	Matrix* getGamma(int ogid,string& geneName, string& specName);
 	Matrix* getNormTerm(int ogid,string& geneName, string& specName);
@@ -76,6 +84,8 @@ class GammaManager
 	map<int,string> ogDupAncMap;
 	map<string,Matrix*> clusterFlipCnt;
 	gsl_rng* r;
+	//This is a flag we will use to check for off calculations in the probabilities.
+	int errorflag;
 };
 
 #endif
