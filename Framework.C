@@ -886,9 +886,9 @@ Framework::setClusterTransProb(const char* aFName)
 int
 main(int argc, const char** argv)
 {
-	if(argc!=13)
+	if(argc<13)
 	{
-		cout <<"Usage: escarole specorder orthogroup maxk speciestree clusterassignments rand[rseed|none] outputDir mode[learn|generate|visualize] srcSpecies inittype[uniform|branchlength] p_diagonal_nonleaf constCov" << endl;
+		cout <<"Usage: escarole specorder orthogroup maxk speciestree clusterassignments rand[rseed|none] outputDir mode[learn|generate|visualize] srcSpecies inittype[uniform|branchlength] p_diagonal_nonleaf [option | constCov]" << endl;
 		cout <<"Inittype is for specifying how the cluster transition probabilities will be initialized. If inittype is uniform then set to everything to the same and if branchlength then set everything from the file" << endl;
 		cout <<"constCov (double value) fixes cluster covariance" << endl;
 		cout <<"This version initializes cluster means to source species means" << endl;
@@ -905,8 +905,15 @@ main(int argc, const char** argv)
     //source species/time point
 	fw.setSrcSpecies(argv[9]);
 	// DC add: fix variance to this value
-	fw.setConstCov(argv[12]);
-	
+	if(argc == 13)
+	{ 
+		cout << "Using fixed covariance of " << argv[12] << endl;
+		fw.setConstCov(argv[12]);
+	}else
+	{
+		cout << "Using Covariance estimation" << endl;
+		fw.setConstCov(-999) // SHS set this to a dummy so we can it up as a flag for when we decide to estimate the covariance later. 
+	}
     //uniform
 	if(strcmp(argv[10],"uniform")==0)
 	{

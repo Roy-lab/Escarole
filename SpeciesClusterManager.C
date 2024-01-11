@@ -583,7 +583,10 @@ SpeciesClusterManager::estimateMeanCov(Expert* e, string& specName, int clusterI
 			}
 			cov=cov/sum;
 			// DC ADD: Set constant covariance!
-			cov=constCov;
+			if(constCov != -999)
+			{
+				cov=constCov;
+			}
 			covariance->setValue(cov,i,j);
 			covariance->setValue(cov,j,i);
 		}
