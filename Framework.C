@@ -900,7 +900,7 @@ main(int argc, const char** argv)
 	fw.readSpeciesTree(atoi(argv[3]),argv[4]);
     //Order and Mapping
 	fw.readOrthology(argv[1],argv[2]);
-    //conf file none
+    //conf file nonels
 	fw.readSpeciesData(argv[5],argv[6]);
     //source species/time point
 	fw.setSrcSpecies(argv[9]);

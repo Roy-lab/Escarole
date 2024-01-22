@@ -165,23 +165,32 @@ int GammaManager::estimateAlpha(Gamma::Node* node)
 			for (int c=0; c < node->children.size(); c++) 
 			{
 				double tmp_l = 0;
-				Gamma::Node* child = node->children[c];
+				double transProb = 0;
+                                Gamma::Node* child = node->children[c];
 				Matrix* transitionProb = spdistMgr->getConditional(child->species);
 				for (int j =0; j < maxClusterCnt; j++) 
 				{
-					tmp_l += ((transitionProb->getValue(i,j)) * (child->alpha[j]));
-				}
+                                        transProb = transitionProb->getValue(i,j);
+					//tmp_l += ((transitionProb->getValue(i,j)) * (child->alpha[j])); //This is the non leaf update P(s_{d_k}g | s_cg) * \alpha_{d_kg}
+                                        tmp_l += transProb * child->alpha[j];
+                                }
 				updatecnt++;
 				tmp_alpha *= tmp_l;
 	 		}
-			if(updatecnt==0)
+
+                        //SHS commented this out. If this was left in only alpha of the 0 state is computed?
+			/*
+                        if(updatecnt==0)
 			{
 				//No need to continue for other clusterIDs.
 				return 0;	
 			}
+                        */
+
 			//probs should have been updated in the expectationStep_Species
-			node->alpha[i] = tmp_alpha*probs[i];
-		}		
+                        //This is the product for nonleaf nodes. It is the probability of observing the data for each of the children. The probability of transitioning. and the probability of ovserving the data in the parent.
+                        node->alpha[i] = tmp_alpha*probs[i];
+		}
 	}
 	return 0;
 }
@@ -483,7 +492,7 @@ GammaManager::estimateNonLeafPosterior()
 	{
 		Gamma* gamma_og=gIter->second;
 		showGammas=false;
-		if((gIter->first==38)||(gIter->first==13925))
+		if((gIter->first==38)||(gIter->first==13925) || (gIter->first == 12120))
 		{
 			showGammas=true;
 			cout <<"Stop here" << endl;
@@ -494,8 +503,8 @@ GammaManager::estimateNonLeafPosterior()
 		//estimateNonLeafPosterior(gamma_og->getRoot());
 		double ll=0;
 		errorflag=0;
-		estimateNonLeafPosteriorGamma(gamma_og->getRoot(),ll);
-		//estimateNonLeafPosteriorGammaLikeArboretum(gamma_og->getRoot(),ll);
+		//estimateNonLeafPosteriorGamma(gamma_og->getRoot(),ll);
+		estimateNonLeafPosteriorGammaLikeArboretum(gamma_og->getRoot(),ll);
 		if(errorflag>0)
 		{
 			problemOGs[gIter->first]=errorflag;
@@ -635,7 +644,7 @@ GammaManager::estimateNonLeafPosteriorGamma(Gamma::Node* g,double& ll)
 		}
 		for(int i=0;i<maxClusterCnt;i++)
 		{
-			//double v=g->alpha->getValue(0,i);
+                        //double v=g->alpha->getValue(0,i);
 			double v=g->alpha[i];
 			//double u=g->beta[i];
 			double prior=conditional->getValue(0,i);
@@ -688,12 +697,15 @@ GammaManager::estimateNonLeafPosteriorGamma(Gamma::Node* g,double& ll)
 
 			}
 		}
+                //SHS commented this out. It is not needed for computation of the likelihood.
+
 		if(fabs(ll-localll)>1e-3)
 		{
 		//	cout <<"The local ll for this node " << g->name <<" " << g->species<< " is not matching using localll " << endl
 		//	<< "ll: " << ll << " localll: " << localll <<endl;
 			errorflag=errorflag+1;
 		}
+
 
 		for(int i=0;i<maxClusterCnt;i++)
 		{
