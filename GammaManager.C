@@ -498,8 +498,8 @@ GammaManager::estimateNonLeafPosterior()
 			cout <<"Stop here" << endl;
 		}
 		estimateAlpha(gamma_og->getRoot());
-		estimateBeta(gamma_og->getRoot());
-		//estimateBetaLikeArboretum(gamma_og->getRoot());
+		//estimateBeta(gamma_og->getRoot());
+		estimateBetaLikeArboretum(gamma_og->getRoot());
 		//estimateNonLeafPosterior(gamma_og->getRoot());
 		double ll=0;
 		errorflag=0;

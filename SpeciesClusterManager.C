@@ -526,7 +526,7 @@ SpeciesClusterManager::estimateMeanCov(Expert* e, string& specName, int clusterI
 			for(int r=0;r<gamma_i_k_s->getRowCnt();r++)
 			{
 				double g_i=gamma_i_k_s->getValue(r,clusterID);
-				if(g_i>1)
+				if(g_i>1 + 1.e-3) //SHS added a tolarance term here.
 				{
 					cout <<"Weird gamma found for " << dIter->first << " at row " << r << " = " <<g_i << endl;
 				}
