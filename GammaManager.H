@@ -25,7 +25,7 @@ class GammaManager
 	int estimateNonLeafPosterior();
 
 	int estimateNonLeafPosteriorGamma(Gamma::Node* g,double& ll);
-	int estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& ll);
+	int estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,long double& ll);
 	int estimateBeta(Gamma::Node* node);
 	int estimateBetaLikeArboretum(Gamma::Node* node);
 	int estimateAlpha(Gamma::Node* node);

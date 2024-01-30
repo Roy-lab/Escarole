@@ -34,14 +34,14 @@ Matrix::Matrix(int r,int c) :
 	row(r),
 	col(c)
 {
-	matrix=gsl_matrix_alloc(row,col);
+	matrix=gsl_matrix_long_double_alloc(row,col);
 }
 
 Matrix::~Matrix()
 {
 	if(matrix!=NULL)
 	{
-		gsl_matrix_free(matrix);
+		gsl_matrix_long_double_free(matrix);
 		matrix=NULL;
 	}
 }
@@ -51,7 +51,7 @@ Matrix::init(int r,int c)
 {
 	row=r;
 	col=c;
-	matrix=gsl_matrix_alloc(r,c);
+	matrix=gsl_matrix_long_double_alloc(r,c);
 	return 0;
 }
 
@@ -62,7 +62,7 @@ Matrix::initAsIdentity()
 	{
 		cout << "Warning!! Row or col = 0" << endl;
 	}
-	gsl_matrix_set_identity (matrix);
+	gsl_matrix_long_double_set_identity (matrix);
 	return 0;
 }
 	
@@ -78,8 +78,8 @@ Matrix::addMatrix(Matrix* b)
 		return NULL;	
 	}
 	Matrix* res=new Matrix(row,col);
-	gsl_matrix_memcpy (res->matrix, matrix);
-	gsl_matrix_add(res->matrix,b->matrix);
+	gsl_matrix_long_double_memcpy (res->matrix, matrix);
+	gsl_matrix_long_double_add(res->matrix,b->matrix);
 	return res;	
 }
 Matrix* 
@@ -91,8 +91,8 @@ Matrix::subtractMatrix(Matrix* b)
 		return NULL;	
 	}
 	Matrix* res=new Matrix(row,col);
-	gsl_matrix_memcpy (res->matrix, matrix);
-	gsl_matrix_sub(res->matrix,b->matrix);
+	gsl_matrix_long_double_memcpy (res->matrix, matrix);
+	gsl_matrix_long_double_sub(res->matrix,b->matrix);
 	return res;	
 }
 
@@ -105,10 +105,10 @@ Matrix::multiplyMatrix(Matrix* b)
 		return NULL;
 	}
 	Matrix* res=new Matrix(row,b->getColCnt());
-	gsl_matrix_set_zero (res->matrix);
+	gsl_matrix_long_double_set_zero(res->matrix);
 
 	gsl_matrix_float* resmatrix=gsl_matrix_float_alloc(row,b->getColCnt());
-	convertToFloat(resmatrix,res->matrix,row,b->getColCnt());
+        convertToFloat(resmatrix,res->matrix,row,b->getColCnt());
 
 	gsl_matrix_float* cmatrix=gsl_matrix_float_alloc(row,col);
 	convertToFloat(cmatrix,matrix,row,col);
@@ -132,7 +132,7 @@ Matrix::addWithMatrix(Matrix* b)
 		cout << "Dimensions do not match" << endl;
 		return -1;	
 	}
-	gsl_matrix_add(matrix,b->matrix);
+	gsl_matrix_long_double_add(matrix,b->matrix);
 	return 0;	
 }
 	
@@ -144,10 +144,11 @@ Matrix::subtractWithMatrix(Matrix* b)
 		cout << "Dimensions do not match" << endl;
 		return -1;	
 	}
-	gsl_matrix_sub(matrix,b->matrix);
+	gsl_matrix_long_double_sub(matrix,b->matrix);
 	return 0;	
 }
 
+/*
 int 
 Matrix::multiplyWithMatrix(Matrix* b)
 {
@@ -156,7 +157,7 @@ Matrix::multiplyWithMatrix(Matrix* b)
 		return -1;
 	}
 	
-	gsl_matrix* res=gsl_matrix_alloc(row,b->getColCnt());
+	gsl_matrix_long_double* res=gsl_matrix_alloc(row,b->getColCnt());
 	gsl_matrix_set_zero(res);
 	
 	gsl_matrix_float* resmatrix=gsl_matrix_float_alloc(row,b->getColCnt());
@@ -179,25 +180,26 @@ Matrix::multiplyWithMatrix(Matrix* b)
 	gsl_matrix_free(res);
 	return 0;
 }
-	
+*/
+
 int 
 Matrix::addScalar(double aVal)
 {
-	gsl_matrix_add_constant(matrix,aVal);
+	gsl_matrix_long_double_add_constant(matrix,aVal);
 	return 0;
 }
 
 int 
 Matrix::subtractScalar(double aVal)
 {
-	gsl_matrix_add_constant(matrix,-1*aVal);
+	gsl_matrix_long_double_add_constant(matrix,-1*aVal);
 	return 0;
 }
 
 int 
 Matrix::multiplyScalar(double aVal)
 {
-	gsl_matrix_scale(matrix,aVal);
+	gsl_matrix_long_double_scale(matrix,aVal);
 	return 0;
 }
 
@@ -208,28 +210,28 @@ Matrix::divideScalar(double aVal)
 	{
 		return -1;
 	}
-	gsl_matrix_scale(matrix,1/aVal);
+	gsl_matrix_long_double_scale(matrix,1/aVal);
 	return 0;
 }
 
 int 
-Matrix::setValue(double val,int i,int j)
+Matrix::setValue(long double val,int i,int j)
 {
-	gsl_matrix_set(matrix, i, j, val);
+	gsl_matrix_long_double_set(matrix, i, j, val);
 	return 0;
 }
 
 int 
-Matrix::setAllValues(double val)
+Matrix::setAllValues(long double val)
 {
-	gsl_matrix_set_all (matrix,val);
+	gsl_matrix_long_double_set_all (matrix,val);
 	return 0;
 }
 
-double
+long double
 Matrix::getValue(int i,int j)
 {
-	double val=gsl_matrix_get(matrix, i, j);
+	double val=gsl_matrix_long_double_get(matrix, i, j);
 	return val;
 }
 
@@ -237,21 +239,27 @@ Matrix*
 Matrix::invMatrix() 		
 {
 	Matrix* minv=new Matrix(row,col);
+        gsl_matrix* m_holder = gsl_matrix_alloc(row, col);
+        convertFromLongDouble(matrix, m_holder, row, col);
 
 	gsl_matrix* ludecomp=gsl_matrix_alloc(row,col);
-	gsl_matrix_memcpy(ludecomp, matrix);
+	gsl_matrix_memcpy(ludecomp, m_holder);
 	//cout << "Old Value : " << gsl_matrix_get(matrix,0,0) << endl;
 	//cout << "New Value : " << gsl_matrix_get(ludecomp,0,0) << endl;
 	gsl_permutation* p=gsl_permutation_alloc(row);
 	int signum=0;
 
+
 	gsl_linalg_LU_decomp(ludecomp, p, &signum);
-	gsl_linalg_LU_invert(ludecomp, p, minv->matrix);
+	gsl_linalg_LU_invert(ludecomp, p, m_holder);
+        minv ->convertToLongDouble(minv->matrix, m_holder, row, col);
+        gsl_matrix_free(m_holder);
 	gsl_matrix_free(ludecomp);
 	gsl_permutation_free(p);
 	return minv;
 }
 
+/*
 Matrix*
 Matrix::invMatrix(gsl_matrix* ludecomp, gsl_permutation* p) 		
 {
@@ -267,6 +275,7 @@ Matrix::invMatrix(gsl_matrix* ludecomp, gsl_permutation* p)
 	gsl_linalg_LU_invert(ludecomp, p, minv->matrix);
 	return minv;
 }
+*/
 
 
 
@@ -274,7 +283,7 @@ Matrix*
 Matrix::transMatrix()
 {
 	Matrix* transMatrix=new Matrix(col,row);
-	gsl_matrix_transpose_memcpy(transMatrix->matrix,matrix);
+	gsl_matrix_long_double_transpose_memcpy(transMatrix->matrix,matrix);
 	return transMatrix;
 }
 
@@ -304,8 +313,10 @@ Matrix::getColCnt()
 double
 Matrix::detMatrix()
 {
+        gsl_matrix* matrix_temp = gsl_matrix_alloc(row, col);
 	gsl_matrix* ludecomp=gsl_matrix_alloc(row,col);
-	gsl_matrix_memcpy(ludecomp, matrix);
+        convertToLongDouble(matrix, matrix_temp, row, col);
+	gsl_matrix_memcpy(ludecomp, matrix_temp);
 	gsl_permutation* p=gsl_permutation_alloc(row);
 	int signum=0;
 
@@ -316,6 +327,7 @@ Matrix::detMatrix()
 	return det;
 }
 
+/*
 double
 Matrix::detMatrix(gsl_matrix* ludecomp, gsl_permutation* p)
 {
@@ -329,8 +341,7 @@ Matrix::detMatrix(gsl_matrix* ludecomp, gsl_permutation* p)
 	double det=gsl_linalg_LU_det(ludecomp, signum);
 	return det;
 }
-
-
+*/
 
 int 
 Matrix::convertToFloat(gsl_matrix_float* dest,const gsl_matrix* source, int r, int c)
@@ -360,6 +371,62 @@ Matrix::convertFromFloat(const gsl_matrix_float* source, gsl_matrix* dest,int r,
 	return 0;
 }
 
+int
+Matrix::convertToLongDouble(gsl_matrix_long_double * dest, const gsl_matrix * source, int r , int c)
+{
+        for(int i=0;i<r;i++)
+        {
+                for(int j=0;j<c;j++)
+                {
+                        double val=gsl_matrix_get(source,i,j);
+                        gsl_matrix_long_double_set(dest,i,j,val);
+                }
+        }
+        return 0;
+}
+
+int
+Matrix::convertFromLongDouble(const gsl_matrix_long_double * source, gsl_matrix* dest,int r, int c)
+{
+        for(int i=0;i<r;i++)
+        {
+                for(int j=0;j<c;j++)
+                {
+                        long double val=gsl_matrix_long_double_get(source,i,j);
+                        gsl_matrix_set(dest,i,j,val);
+                }
+        }
+        return 0;
+}
+
+
+int
+Matrix::convertToFloat(gsl_matrix_float * dest, const gsl_matrix_long_double * source, int r , int c)
+{
+        for(int i=0;i<r;i++)
+        {
+                for(int j=0;j<c;j++)
+                {
+                        float val=gsl_matrix_long_double_get(source,i,j);
+                        gsl_matrix_float_set(dest,i,j,val);
+                }
+        }
+        return 0;
+}
+
+int
+Matrix::convertFromFloat(const gsl_matrix_float * source, gsl_matrix_long_double * dest,int r, int c)
+{
+        for(int i=0;i<r;i++)
+        {
+                for(int j=0;j<c;j++)
+                {
+                        long double val=gsl_matrix_float_get(source,i,j);
+                        gsl_matrix_long_double_set(dest,i,j,val);
+                }
+        }
+        return 0;
+}
 int
 Matrix::showMatrix(ostream& o)
 {
@@ -432,13 +499,13 @@ Matrix::normalizeVector()
 	{
 		return 0;
 	}	
-	double minValue=gsl_matrix_min(matrix);
+	long double minValue=gsl_matrix_long_double_min(matrix);
 	if(minValue<0)
 	{
 		minValue=-1*minValue;
 		for(int i=0;i<row;i++)
 		{
-			double val=getValue(i,0);
+			long double val=getValue(i,0);
 			if(val<0)
 			{
 				val=val+minValue;
@@ -447,7 +514,7 @@ Matrix::normalizeVector()
 		}
 	}
 
-	double total=0;
+	long double total=0;
 	for(int i=0;i<row;i++)
 	{
 		total=total+getValue(i,0);
@@ -455,19 +522,21 @@ Matrix::normalizeVector()
 
 	for(int i=0;i<row;i++)
 	{
-		double val=getValue(i,0)/total;
+		long double val=getValue(i,0)/total;
 		setValue(val,i,0);
 	}
 
 	return 0;
 }
 
-double
+/*
+long double
 Matrix::getMax()
 {
-	double val=gsl_matrix_max(matrix);
+	long double val=gsl_matrix_long_double_max(matrix);
 	return val;
 }
+*/
 
 int
 Matrix::makeUncorrelated()
@@ -543,6 +612,7 @@ Matrix::colZero()
 
 //Make matrix non negative by making all elements less than zero
 //as zero
+/*
 int 
 Matrix::makePositive()
 {
@@ -566,6 +636,8 @@ Matrix::makePositive()
 	}
 	return 0;	
 }
+*/
+
 
 Matrix*
 Matrix::copyMe()

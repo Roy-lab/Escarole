@@ -189,7 +189,9 @@ int GammaManager::estimateAlpha(Gamma::Node* node)
 
 			//probs should have been updated in the expectationStep_Species
                         //This is the product for nonleaf nodes. It is the probability of observing the data for each of the children. The probability of transitioning. and the probability of ovserving the data in the parent.
-                        node->alpha[i] = tmp_alpha*probs[i];
+                        long double prob_temp = probs[i];
+                        node->alpha[i] = tmp_alpha * prob_temp;
+
                         if(node->alpha[i] < 1e-3000)
                         {
                                 node->alpha[i] = 1e-3000;
@@ -505,7 +507,7 @@ GammaManager::estimateNonLeafPosterior()
 		//estimateBeta(gamma_og->getRoot());
 		estimateBetaLikeArboretum(gamma_og->getRoot());
 		//estimateNonLeafPosterior(gamma_og->getRoot());
-		double ll=0;
+		long double ll=0;
 		errorflag=0;
 		//estimateNonLeafPosteriorGamma(gamma_og->getRoot(),ll);
 		estimateNonLeafPosteriorGammaLikeArboretum(gamma_og->getRoot(),ll);
@@ -761,7 +763,7 @@ GammaManager::estimateNonLeafPosteriorGamma(Gamma::Node* g,double& ll)
 
 
 int
-GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& ll)
+GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,long double& ll)
 {
 	if(g->alpha.size()==0|| g->beta.size()==0)
 	{
@@ -791,8 +793,8 @@ GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& 
 		}
 		for(int i=0;i<maxClusterCnt;i++)
 		{
-			double v=g->alpha[i];
-			double p=v*conditional->getValue(0,i);
+			long double v=g->alpha[i];
+			long double p=v*conditional->getValue(0,i);
 			if(p<0 || isnan(p))
 			{
 				cout << "p is set" << g->name << "\t" << p << "\t" << v << endl;
@@ -802,7 +804,7 @@ GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& 
 		}
 		for(int i=0;i<maxClusterCnt;i++)
 		{
-			double v=g->gamma->getValue(0,i);
+			long double v=g->gamma->getValue(0,i);
 			v=v/ll;
 			if(isnan(v)|| isinf(v))
 			{
@@ -814,15 +816,15 @@ GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& 
 	}
 	else
 	{
-		double localll=0;
+		long double localll=0;
 		for(int i=0;i<maxClusterCnt;i++)
 		{
 			for(int j=0;j<maxClusterCnt;j++)
 			{
-				double pval=conditional->getValue(i,j);
-				double b=g->beta[i];
-				double a=g->alpha[j];
-				double v=b*pval*a;
+				long double pval=conditional->getValue(i,j);
+                                long double b=g->beta[i];
+				long double a=g->alpha[j];
+				long double v=b*pval*a;
 				localll=localll+v;
 				v=v/ll;
 				g->gamma->setValue(v,i,j);
@@ -835,10 +837,10 @@ GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& 
 		}
 		for(int j=0;j<maxClusterCnt;j++)
 		{
-			double s=0;
+			long double s=0;
 			for(int i=0;i<maxClusterCnt;i++)
 			{
-				double v=g->gamma->getValue(i,j);
+				long double v=g->gamma->getValue(i,j);
 				s=s+v;
 			}
 			g->normTerm->setValue(s,0,j);
@@ -848,10 +850,10 @@ GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& 
 			cout <<"node name " << g->name << endl;
 			g->gamma->showMatrix();
 		}
-		if(fabs(ll-localll)>1e-3)
+		if(fabs(ll-localll)/ll>1e-5) //check precision but really we can look at rel difference here. There are too many type conversion in this mess!
 		{
-		//	cout <<"The local ll for this node " << g->name <<" " << g->species<< " is not matching using localll " << endl
-		//	<< "ll: " << ll << " localll: " << localll <<endl;
+			cout <<"The local ll for this node " << g->name <<" " << g->species<< " is not matching using localll " << endl
+			<< "ll: " << ll << " localll: " << localll <<endl;
 			errorflag=errorflag+1;
 		}
 	}

@@ -38,7 +38,7 @@ class Gamma
 		map<int,double> mixProbs;
 	        bool excludeFlag;
 		map<int,long double> alpha;
-		map<int,long double> beta;
+		map<int, double> beta;
 	};
 	Node* getRoot();
 	Node* getGeneNode(string&,string&);
