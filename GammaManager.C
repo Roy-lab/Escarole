@@ -661,7 +661,18 @@ GammaManager::estimateNonLeafPosteriorGamma(Gamma::Node* g,double& ll)
 		for(int i=0;i<maxClusterCnt;i++)
 		{
 			double v=g->gamma->getValue(0,i);
-			v=v/ll;
+
+
+                        if(v == 0 || ll == 0)
+                        {
+                                v = 1e-300; //correct underflow errors by setting some small probability
+                                cout << "Warning Gamma small for gene: " << g->name << ". Setting Gamma to 1e-300." << endl;
+                        }else
+                        {
+                                v=v/ll;
+                        }
+
+
 			if(isnan(v)|| isinf(v))
 			{
 				cout <<"Found bad prob for " <<g->name << endl;
@@ -802,7 +813,7 @@ GammaManager::estimateNonLeafPosteriorGammaLikeArboretum(Gamma::Node* g,double& 
 			v=v/ll;
 			if(isnan(v)|| isinf(v))
 			{
-				cout <<"Found bad prob " << endl;
+				cout <<"Found bad prob for gene " << g -> name << endl;
 			}
 			g->gamma->setValue(v,0,i);
 			g->normTerm->setValue(v,0,i);
