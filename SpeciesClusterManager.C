@@ -218,6 +218,7 @@ SpeciesClusterManager::estimateExpertParameters(const char* outputDir)
 	double currScore=0;
 	bool convergence=false;
 	int iter=0;
+        int check_count;
 	while((!convergence)&&(iter<100))
 	//while((!convergence)&&(iter<2))
 	{
@@ -226,11 +227,20 @@ SpeciesClusterManager::estimateExpertParameters(const char* outputDir)
 		//dumpAllInferredClusterAssignments(outputDir,iter);
 		double newScore=getScore();
 		double diff=fabs(newScore-currScore);
-		if((iter>0) && (diff<0.5))
+                double rel_change = diff/currScore;
+		if((iter>0) && (rel_change<1e-5))
 		{
-			convergence=true;
+			check_count++;
 		}
-		cout <<"Iter: " << iter << " score: " << newScore << " diff " << diff << endl;
+                else
+                {
+                        check_count=0;
+                }
+                if(check_count>3)
+                {
+                        convergence = true;
+                }
+		cout <<"Iter: " << iter << " score: " << newScore << " diff " << diff << " rel change" << rel_change <<  endl;
 		currScore=newScore;
 		iter++;
 	}

@@ -159,13 +159,13 @@ int GammaManager::estimateAlpha(Gamma::Node* node)
 		////Matrix* transitionProb = spdistMgr->getConditional(node->species);
 		for (int i=0; i < maxClusterCnt; i++) 
 		{
-			double tmp_alpha = 1.0;
+			long double tmp_alpha = 1.0;
 			int updatecnt=0;
 			//The logic of missing data for a gene make things a bit complicated. We will have a counter to see if tmp_alpha was updated at all
 			for (int c=0; c < node->children.size(); c++) 
 			{
-				double tmp_l = 0;
-				double transProb = 0;
+				long double tmp_l = 0;
+				long double transProb = 0;
                                 Gamma::Node* child = node->children[c];
 				Matrix* transitionProb = spdistMgr->getConditional(child->species);
 				for (int j =0; j < maxClusterCnt; j++) 
@@ -190,9 +190,9 @@ int GammaManager::estimateAlpha(Gamma::Node* node)
 			//probs should have been updated in the expectationStep_Species
                         //This is the product for nonleaf nodes. It is the probability of observing the data for each of the children. The probability of transitioning. and the probability of ovserving the data in the parent.
                         node->alpha[i] = tmp_alpha*probs[i];
-                        if(node->alpha[i] < 1e-300)
+                        if(node->alpha[i] < 1e-3000)
                         {
-                                node->alpha[i] = 1e-300;
+                                node->alpha[i] = 1e-3000;
                         }
 		}
 	}
@@ -220,8 +220,8 @@ int GammaManager::estimateBeta(Gamma::Node* node)
 	{
 		for (int i=0; i < maxClusterCnt; i++) 
 		{
-			double betaval=0;
-			double tmp_ancestors=0;
+			long double betaval=0;
+			long double tmp_ancestors=0;
 			Matrix* parentcond=spdistMgr->getConditional(parent->species);
 			//here j is the index for the parent 
 			for (int j = 0; j < maxClusterCnt; j++) 
@@ -248,7 +248,7 @@ int GammaManager::estimateBeta(Gamma::Node* node)
 				//	}
 				}
 
-				double tmp_siblings = 1;
+				long double tmp_siblings = 1;
 				for (int c=0; c < parent->children.size(); c++) 
 				{
 					Gamma::Node* sibling = parent->children[c];
@@ -261,7 +261,7 @@ int GammaManager::estimateBeta(Gamma::Node* node)
 					{
 						continue;
 					}
-					double siblingcontrib=0;
+					long double siblingcontrib=0;
 					if (sibling != node) 
 					{
 						for (int k=0; k < maxClusterCnt; k++) 
@@ -321,14 +321,14 @@ GammaManager::estimateBetaLikeArboretum(Gamma::Node* node)
 		Gamma::Node* parent=node->parent;
 		for(int i=0;i<maxClusterCnt;i++)
 		{
-			double tmp_siblings = 1;
-			double obsval=parent->mixProbs[i];
-			double pi=rootprior->getValue(0,i);
-			double tmp_ancestors=pi*obsval;
+			long double tmp_siblings = 1;
+			long double obsval=parent->mixProbs[i];
+			long double pi=rootprior->getValue(0,i);
+			long double tmp_ancestors=pi*obsval;
 			for(int c=0;c<parent->children.size();c++)
 			{
 				//double bval=0;
-				double siblingcontrib=0;
+				long double siblingcontrib=0;
 				Gamma::Node* sibling = parent->children[c];
 				if (sibling == node) 
 				{
@@ -351,18 +351,18 @@ GammaManager::estimateBetaLikeArboretum(Gamma::Node* node)
 		Gamma::Node* parent=node->parent;
 		for(int i=0;i<maxClusterCnt;i++)
 		{
-			double tmp_ancestors=0;
+			long double tmp_ancestors=0;
 			for(int k=0;k<maxClusterCnt;k++)
 			{
 				double pval=parentcond->getValue(k,i);
 				double obsval=parent->mixProbs[i];
 				tmp_ancestors=tmp_ancestors+(parent->beta[k]*pval*obsval);
 			}
-			double tmp_siblings = 1;
+			long double tmp_siblings = 1;
 			for(int c=0;c<parent->children.size();c++)
 			{
 				//double bval=0;
-				double siblingcontrib=0;
+				long double siblingcontrib=0;
 				Gamma::Node* sibling = parent->children[c];
 				if (sibling == node) 
 				{

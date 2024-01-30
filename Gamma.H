@@ -37,8 +37,8 @@ class Gamma
 		map<int,double>* dataLL;
 		map<int,double> mixProbs;
 	        bool excludeFlag;
-		map<int,double> alpha;
-		map<int,double> beta;
+		map<int,long double> alpha;
+		map<int,long double> beta;
 	};
 	Node* getRoot();
 	Node* getGeneNode(string&,string&);
@@ -46,7 +46,7 @@ class Gamma
 	int showTree();
 	map<int,double>* getDataLL(string&);
 	string& getDupAncestor();
-	double ll;
+	long double ll;
 	private:
 	Gamma::Node* initSubtree(GeneTree* gtreenode);
 	Gamma::Node* initSubtree(GeneTree* gtreenode,string& rootname);
