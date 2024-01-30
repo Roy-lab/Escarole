@@ -190,6 +190,10 @@ int GammaManager::estimateAlpha(Gamma::Node* node)
 			//probs should have been updated in the expectationStep_Species
                         //This is the product for nonleaf nodes. It is the probability of observing the data for each of the children. The probability of transitioning. and the probability of ovserving the data in the parent.
                         node->alpha[i] = tmp_alpha*probs[i];
+                        if(node->alpha[i] < 1e-300)
+                        {
+                                node->alpha[i] = 1e-300;
+                        }
 		}
 	}
 	return 0;
