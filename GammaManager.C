@@ -75,7 +75,7 @@ GammaManager::setSpeciesDistManager(SpeciesDistManager* aPtr)
 int 
 GammaManager::initGamma(int ogid, string& geneName, string& specName,int clustID)
 {
-	if(ogid==1002|| ogid==13692)
+	if(ogid==1002|| ogid==13692 || ogid==11796)
 	{
 		cout <<"Found OGID "<< ogid << endl;
 	}
@@ -96,7 +96,7 @@ GammaManager::initGamma(int ogid, string& geneName, string& specName,int clustID
 		{
 			ogDupAncMap[ogid]=gamma->getDupAncestor();
 		}
-		if(ogid==4597)
+		if(ogid==4597 || ogid==11796)
 		{
 			cout <<"Now showing " << ogid << endl;
 			gamma->showTree();
@@ -516,6 +516,7 @@ GammaManager::estimateNonLeafPosterior()
 		gamma_og->ll=ll;
 	}
 	cout <<"Found a total of " << problemOGs.size() << " problem OGs" << endl;
+	/*
 	ofstream oFile("problemOGs.txt");
 	for(map<int,int>::iterator aIter=problemOGs.begin();aIter!=problemOGs.end();aIter++)
 	{
@@ -523,6 +524,7 @@ GammaManager::estimateNonLeafPosterior()
 		oFile <<aIter->first<<"\t" << aIter->second << endl;
 	}
 	oFile.close();
+	*/
 	return 0;
 }
 
@@ -990,7 +992,7 @@ GammaManager::getAllClusterAssignments(map<int,map<string,int>*>& allClusterAssi
 			cout <<"Stop here" << endl;
 		}
 		Gamma* gamma=gIter->second;
-		if(gIter->first==1325)
+		if(gIter->first==11796)
 		{
 			gamma->showTree();
 		}
@@ -1225,7 +1227,7 @@ GammaManager::updateTransitionMatrix_ML(Gamma::Node* node, int parentClusterID)
 			for(int c=0;c<margp->getColCnt();c++)
 			{
 				double val=margp->getValue(0,c);
-				if(val>maxScore)
+				if(val>=maxScore)
 				{
 					maxScore=val;
 					maxClusterID=c;

@@ -6,7 +6,7 @@ INCLPATH2=gsl_install/include
 
 
 CC=g++ 
-CFLAGS = -g -std=c++0x
+CFLAGS = -g -O0 -std=c++0x
 LFLAG = -lgsl -lgslcblas 
 
 mintInitFix: $(SRC)
